@@ -1,0 +1,447 @@
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+  #sim-container {
+    background: #1a2332;
+    border-radius: 12px;
+    overflow: hidden;
+    font-family: var(--font-sans);
+    border: 1.5px solid #2a3a52;
+  }
+  #sim-header {
+    background: #0d1926;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid #2a3a52;
+  }
+  #sim-header span { color: #7ec8e3; font-size: 14px; font-weight: 500; letter-spacing: 0.3px; }
+  #sim-header .dot { width:10px;height:10px;border-radius:50%;background:#7ec8e3;opacity:0.7; }
+  #p5canvas { display: block; }
+  #controls-panel {
+    background: #0d1926;
+    border-top: 1px solid #2a3a52;
+    padding: 14px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .ctrl-group { display:flex;flex-direction:column;gap:6px; }
+  .ctrl-label { color:#7ec8e3;font-size:11px;font-weight:500;letter-spacing:0.5px;text-transform:uppercase; }
+  .ctrl-row { display:flex;align-items:center;gap:8px; }
+  .ctrl-value { color:#fff;font-size:13px;font-weight:500;min-width:44px;text-align:right; }
+  input[type=range] {
+    -webkit-appearance:none;appearance:none;
+    width:100px;height:4px;
+    background:#2a3a52;border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#7ec8e3;cursor:pointer;border:2px solid #0d1926;
+  }
+  .phet-btn {
+    padding:8px 20px;border-radius:8px;border:none;cursor:pointer;
+    font-size:13px;font-weight:600;letter-spacing:0.3px;transition:all 0.15s;
+  }
+  .btn-release { background:#e8622a;color:#fff; }
+  .btn-release:hover { background:#ff7a3a; transform:scale(1.03); }
+  .btn-reset { background:#2a3a52;color:#7ec8e3;border:1px solid #3a5a72; }
+  .btn-reset:hover { background:#3a5a72; }
+  .energy-bars { display:flex;flex-direction:column;gap:5px;min-width:180px; }
+  .ebar-row { display:flex;align-items:center;gap:7px; }
+  .ebar-label { font-size:11px;width:28px;font-weight:500; }
+  .ebar-outer { flex:1;height:9px;background:#1a2a3a;border-radius:4px;overflow:hidden; }
+  .ebar-inner { height:100%;border-radius:4px;transition:width 0.04s; }
+  .ebar-ke { background:#f7c948; }
+  .ebar-pe { background:#4a9eff; }
+  .ebar-th { background:#ff6b6b; }
+  .ebar-total { background:#5fdd9d; }
+  .ebar-val { color:#ccc;font-size:11px;min-width:40px;text-align:right; }
+</style>
+
+<div id="sim-container">
+  <div id="sim-header">
+    <div class="dot"></div>
+    <span>Energy Conservation — Bouncing Ball</span>
+  </div>
+  <div id="p5canvas"></div>
+  <div id="controls-panel">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button class="phet-btn btn-release" id="btnRelease">&#9654; Release</button>
+      <button class="phet-btn btn-reset" id="btnReset">↺ Reset</button>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Gravity (m/s²)</div>
+      <div class="ctrl-row">
+        <input type="range" id="gravSlider" min="1" max="20" value="9.8" step="0.1">
+        <span class="ctrl-value" id="gravVal">9.8</span>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Elasticity</div>
+      <div class="ctrl-row">
+        <input type="range" id="elastSlider" min="0" max="1" value="1" step="0.01">
+        <span class="ctrl-value" id="elastVal">1.00</span>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Mass (kg)</div>
+      <div class="ctrl-row">
+        <input type="range" id="massSlider" min="0.1" max="5" value="1" step="0.1">
+        <span class="ctrl-value" id="massVal">1.0</span>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">Horiz. Velocity (m/s)</div>
+      <div class="ctrl-row">
+        <input type="range" id="hvelSlider" min="-8" max="8" value="0" step="0.1">
+        <span class="ctrl-value" id="hvelVal">0.0</span>
+      </div>
+    </div>
+    <div class="energy-bars">
+      <div class="ctrl-label" style="margin-bottom:2px;">Energy (J)</div>
+      <div class="ebar-row">
+        <span class="ebar-label" style="color:#f7c948">KE</span>
+        <div class="ebar-outer"><div class="ebar-inner ebar-ke" id="keBar" style="width:0%"></div></div>
+        <span class="ebar-val" id="keVal">0.0J</span>
+      </div>
+      <div class="ebar-row">
+        <span class="ebar-label" style="color:#4a9eff">PE</span>
+        <div class="ebar-outer"><div class="ebar-inner ebar-pe" id="peBar" style="width:100%"></div></div>
+        <span class="ebar-val" id="peVal">0.0J</span>
+      </div>
+      <div class="ebar-row">
+        <span class="ebar-label" style="color:#ff6b6b">Th</span>
+        <div class="ebar-outer"><div class="ebar-inner ebar-th" id="thBar" style="width:0%"></div></div>
+        <span class="ebar-val" id="thVal">0.0J</span>
+      </div>
+      <div class="ebar-row">
+        <span class="ebar-label" style="color:#5fdd9d">Tot</span>
+        <div class="ebar-outer"><div class="ebar-inner ebar-total" id="totBar" style="width:100%"></div></div>
+        <span class="ebar-val" id="totVal">0.0J</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+new p5(function(p) {
+  let W, H;
+  const FLOOR_Y_OFFSET = 52;
+  const SCALE = 40;
+  let FLOOR_Y;
+  let ball, released = false;
+  let g = 9.8, elast = 1.0, mass = 1.0, hvel = 0.0;
+  let totalEnergy = 0, thermalEnergy = 0;
+  let bounceFlash = 0, wallFlash = 0;
+  let trailPts = [];
+  let squishT = 0, squishAmt = 0;
+
+  function getContainerWidth() {
+    let el = document.getElementById('p5canvas');
+    return el ? el.offsetWidth || 560 : 560;
+  }
+
+  function resetBall() {
+    const r = 18;
+    ball = { x: W * 0.35, y: 70, vx: 0, vy: 0, r };
+    released = false;
+    trailPts = [];
+    bounceFlash = 0; wallFlash = 0;
+    squishT = 0; squishAmt = 0;
+    thermalEnergy = 0;
+    let h = (FLOOR_Y - ball.y) / SCALE;
+    totalEnergy = mass * g * h + 0.5 * mass * hvel * hvel;
+    updateEnergyUI(0, mass * g * h, 0);
+  }
+
+  p.setup = function() {
+    W = getContainerWidth();
+    H = 320;
+    FLOOR_Y = H - FLOOR_Y_OFFSET;
+    let cnv = p.createCanvas(W, H);
+    cnv.parent('p5canvas');
+    resetBall();
+
+    document.getElementById('btnRelease').onclick = () => { if (!released) { released = true; ball.vx = hvel * SCALE; } };
+    document.getElementById('btnReset').onclick = () => resetBall();
+
+    document.getElementById('gravSlider').oninput = function() {
+      g = parseFloat(this.value);
+      document.getElementById('gravVal').textContent = parseFloat(g).toFixed(1);
+      if (!released) recalcEnergy();
+    };
+    document.getElementById('elastSlider').oninput = function() {
+      elast = parseFloat(this.value);
+      document.getElementById('elastVal').textContent = elast.toFixed(2);
+    };
+    document.getElementById('massSlider').oninput = function() {
+      mass = parseFloat(this.value);
+      document.getElementById('massVal').textContent = mass.toFixed(1);
+      if (!released) recalcEnergy();
+    };
+    document.getElementById('hvelSlider').oninput = function() {
+      hvel = parseFloat(this.value);
+      document.getElementById('hvelVal').textContent = hvel.toFixed(1);
+      if (!released) recalcEnergy();
+    };
+  };
+
+  function recalcEnergy() {
+    let h = (FLOOR_Y - ball.y) / SCALE;
+    totalEnergy = mass * g * Math.max(0, h) + 0.5 * mass * hvel * hvel;
+    thermalEnergy = 0;
+    updateEnergyUI(0, mass * g * Math.max(0, h), 0);
+  }
+
+  p.draw = function() {
+    p.background(26, 35, 50);
+    drawGrid();
+
+    if (released) {
+      let dt = Math.min(p.deltaTime / 1000, 0.033);
+      ball.vy += g * SCALE * dt;
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+
+      // Floor bounce
+      if (ball.y + ball.r >= FLOOR_Y) {
+        ball.y = FLOOR_Y - ball.r;
+        let vyBefore = ball.vy;
+        ball.vy = -ball.vy * elast;
+        ball.vx = ball.vx * (0.5 + elast * 0.5);
+        let lostKE = 0.5 * mass * ((vyBefore / SCALE) * (vyBefore / SCALE) - (ball.vy / SCALE) * (ball.vy / SCALE));
+        thermalEnergy += Math.max(0, lostKE);
+        bounceFlash = 14;
+        squishAmt = p.map(Math.abs(vyBefore), 0, 600, 0, 0.45);
+        squishT = 10;
+      }
+
+      // Wall bounces
+      if (ball.x - ball.r < 0) {
+        ball.x = ball.r;
+        let vxBefore = ball.vx;
+        ball.vx = -ball.vx * elast;
+        let lostKE = 0.5 * mass * ((vxBefore / SCALE) * (vxBefore / SCALE) - (ball.vx / SCALE) * (ball.vx / SCALE));
+        thermalEnergy += Math.max(0, lostKE);
+        wallFlash = 10;
+      }
+      if (ball.x + ball.r > W) {
+        ball.x = W - ball.r;
+        let vxBefore = ball.vx;
+        ball.vx = -ball.vx * elast;
+        let lostKE = 0.5 * mass * ((vxBefore / SCALE) * (vxBefore / SCALE) - (ball.vx / SCALE) * (ball.vx / SCALE));
+        thermalEnergy += Math.max(0, lostKE);
+        wallFlash = 10;
+      }
+
+      if (squishT > 0) squishT--;
+    }
+
+    drawFloor();
+    drawHeightArrow();
+
+    trailPts.push({ x: ball.x, y: ball.y });
+    if (trailPts.length > 70) trailPts.shift();
+    drawTrail();
+
+    drawBall();
+    if (bounceFlash > 0) { drawBounceFlash(); bounceFlash--; }
+    if (wallFlash > 0) wallFlash--;
+
+    updateEnergy();
+  };
+
+  function drawGrid() {
+    p.stroke(40, 55, 75);
+    p.strokeWeight(0.5);
+    for (let x = 0; x <= W; x += 40) p.line(x, 0, x, FLOOR_Y);
+    for (let y = 0; y < FLOOR_Y; y += 40) p.line(0, y, W, y);
+  }
+
+  function drawFloor() {
+    // Ground fill
+    p.noStroke();
+    p.fill(30, 50, 80, 180);
+    p.rect(0, FLOOR_Y, W, H - FLOOR_Y);
+
+    // Hatch marks (ground symbol, physics style)
+    p.stroke(74, 158, 255, 80);
+    p.strokeWeight(1);
+    for (let x = 0; x < W; x += 18) {
+      p.line(x, FLOOR_Y, x - 12, FLOOR_Y + 14);
+    }
+
+    // Main ground line — full width
+    p.stroke(74, 158, 255);
+    p.strokeWeight(2.5);
+    p.line(0, FLOOR_Y, W, FLOOR_Y);
+  }
+
+  function drawHeightArrow() {
+    let h = (FLOOR_Y - ball.y) / SCALE;
+    if (h < 0.05) return;
+    let ax = Math.min(ball.x + ball.r + 14, W - 40);
+    p.stroke(95, 221, 157, 130);
+    p.strokeWeight(1.5);
+    p.drawingContext.setLineDash([4, 4]);
+    p.line(ax, ball.y, ax, FLOOR_Y);
+    p.drawingContext.setLineDash([]);
+    p.fill(95, 221, 157);
+    p.noStroke();
+    p.triangle(ax - 4, ball.y + 9, ax + 4, ball.y + 9, ax, ball.y + 1);
+    p.triangle(ax - 4, FLOOR_Y - 9, ax + 4, FLOOR_Y - 9, ax, FLOOR_Y - 1);
+    p.fill(95, 221, 157);
+    p.textSize(11);
+    p.textAlign(p.LEFT);
+    p.text('h=' + h.toFixed(2) + 'm', ax + 7, (ball.y + FLOOR_Y) / 2 + 4);
+  }
+
+  function drawTrail() {
+    if (!released) return;
+    p.noFill();
+    for (let i = 1; i < trailPts.length; i++) {
+      let alpha = p.map(i, 0, trailPts.length, 0, 55);
+      p.stroke(126, 200, 227, alpha);
+      p.strokeWeight(p.map(i, 0, trailPts.length, 0.5, 2));
+      p.line(trailPts[i - 1].x, trailPts[i - 1].y, trailPts[i].x, trailPts[i].y);
+    }
+  }
+
+  function drawBall() {
+    let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy) / SCALE;
+
+    // Squish deformation: tennis ball squish on bounce
+    let squishFactor = 0;
+    if (squishT > 0) {
+      // Use a sine curve for squish: peak at start, recover over squishT frames
+      squishFactor = squishAmt * Math.sin((squishT / 10) * Math.PI);
+    }
+    let scaleX = 1 + squishFactor;
+    let scaleY = 1 - squishFactor * 0.7;
+    // Slight squish in direction of motion when airborne
+    let airSquish = released ? p.map(Math.abs(ball.vy), 0, 400, 0, 0.12) : 0;
+    if (squishT <= 0 && ball.vy > 30) {
+      scaleX = 1 - airSquish * 0.5;
+      scaleY = 1 + airSquish * 0.5;
+    }
+
+    let rx = ball.r * scaleX;
+    let ry = ball.r * scaleY;
+    // Keep bottom tangent to floor when squishing
+    let offsetY = squishT > 0 ? (ball.r - ry) : 0;
+
+    let glowA = released ? p.map(speed, 0, 10, 15, 70) : 15;
+
+    p.push();
+    p.translate(ball.x, ball.y + offsetY);
+
+    // Glow
+    p.noStroke();
+    p.fill(247, 100, 40, glowA);
+    p.ellipse(0, 0, (rx + 12) * 2, (ry + 12) * 2);
+
+    // Thermal heat tint when energy lost
+    let heatFrac = totalEnergy > 0 ? Math.min(thermalEnergy / totalEnergy, 1) : 0;
+    let r_ = p.lerp(232, 255, heatFrac * 0.5);
+    let g_ = p.lerp(98, 50, heatFrac);
+    let b_ = p.lerp(42, 20, heatFrac);
+
+    // Ball body
+    p.stroke(255, 140, 60);
+    p.strokeWeight(2);
+    p.fill(r_, g_, b_);
+    p.ellipse(0, 0, rx * 2, ry * 2);
+
+    // Tennis ball seam curve (two arcs)
+    p.noFill();
+    p.stroke(255, 255, 200, 140);
+    p.strokeWeight(1.5);
+    p.beginShape();
+    for (let a = -80; a <= 80; a += 5) {
+      let rad = a * Math.PI / 180;
+      let sx = Math.cos(rad) * rx * 0.7;
+      let sy = Math.sin(rad) * ry * 0.4 - ry * 0.3;
+      p.vertex(sx, sy);
+    }
+    p.endShape();
+    p.beginShape();
+    for (let a = 100; a <= 260; a += 5) {
+      let rad = a * Math.PI / 180;
+      let sx = Math.cos(rad) * rx * 0.7;
+      let sy = Math.sin(rad) * ry * 0.4 + ry * 0.3;
+      p.vertex(sx, sy);
+    }
+    p.endShape();
+
+    // Specular highlight
+    p.noStroke();
+    p.fill(255, 200, 130, 160);
+    p.ellipse(-rx * 0.28, -ry * 0.3, rx * 0.45, ry * 0.3);
+
+    p.pop();
+
+    // Velocity arrow
+    if (released && speed > 0.5) {
+      let nx = ball.vx / (speed * SCALE + 0.001);
+      let ny = ball.vy / (speed * SCALE + 0.001);
+      let len = p.map(speed, 0, 12, 0, 38);
+      p.stroke(247, 201, 72, 200);
+      p.strokeWeight(1.8);
+      p.line(ball.x, ball.y + offsetY, ball.x + nx * len, ball.y + offsetY + ny * len);
+    }
+  }
+
+  function drawBounceFlash() {
+    let a = p.map(bounceFlash, 0, 14, 0, 120);
+    let r = bounceFlash * 7;
+    p.noStroke();
+    p.fill(247, 201, 72, a * 0.6);
+    p.ellipse(ball.x, FLOOR_Y, r * 2.5, r * 0.6);
+  }
+
+  function updateEnergy() {
+    let heightM = (FLOOR_Y - ball.y) / SCALE;
+    let speedM = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy) / SCALE;
+    let pe = mass * g * Math.max(0, heightM);
+    let ke = 0.5 * mass * speedM * speedM;
+    if (!released) { pe = totalEnergy; ke = 0; }
+    let mech = ke + pe;
+    let tot = mech + thermalEnergy;
+    let maxE = Math.max(totalEnergy, tot, 0.01);
+    updateEnergyUI(ke, pe, thermalEnergy, mech, tot, maxE);
+  }
+
+  function updateEnergyUI(ke, pe, th, mech, tot, maxE) {
+    if (maxE === undefined) maxE = Math.max(totalEnergy, 0.01);
+    if (tot === undefined) tot = ke + pe;
+    document.getElementById('keBar').style.width = Math.min(100, ke / maxE * 100).toFixed(1) + '%';
+    document.getElementById('peBar').style.width = Math.min(100, pe / maxE * 100).toFixed(1) + '%';
+    document.getElementById('thBar').style.width = Math.min(100, (th || 0) / maxE * 100).toFixed(1) + '%';
+    document.getElementById('totBar').style.width = Math.min(100, tot / maxE * 100).toFixed(1) + '%';
+    document.getElementById('keVal').textContent = ke.toFixed(1) + 'J';
+    document.getElementById('peVal').textContent = pe.toFixed(1) + 'J';
+    document.getElementById('thVal').textContent = (th || 0).toFixed(1) + 'J';
+    document.getElementById('totVal').textContent = tot.toFixed(1) + 'J';
+  }
+
+  p.mousePressed = function() {
+    if (!released && p.mouseX >= 0 && p.mouseX <= W && p.mouseY >= 0 && p.mouseY < FLOOR_Y - ball.r) {
+      ball.x = p.constrain(p.mouseX, ball.r, W - ball.r);
+      ball.y = p.constrain(p.mouseY, ball.r, FLOOR_Y - ball.r);
+      recalcEnergy();
+    }
+  };
+  p.mouseDragged = function() {
+    if (!released && p.mouseX >= 0 && p.mouseX <= W && p.mouseY >= 0 && p.mouseY < FLOOR_Y - ball.r) {
+      ball.x = p.constrain(p.mouseX, ball.r, W - ball.r);
+      ball.y = p.constrain(p.mouseY, ball.r, FLOOR_Y - ball.r);
+      recalcEnergy();
+    }
+  };
+
+}, document.getElementById('p5canvas'));
+</script>
